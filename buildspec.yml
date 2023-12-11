@@ -2,18 +2,24 @@ version: 0.2
 
 phases:
   install:
+    runtime-versions:
+      nodejs: 12
+   
     commands:
-      - echo install packages here.
-  pre_build:
-    commands:
-      - echo pre build maybe install dependencies here...
+        # install npm
+        - npm install
+       
   build:
     commands:
-      - echo Build started on `date`
-      - echo might use this to run mocha
-  post_build:
-    commands:
-      - echo Build completed on `date`
+        # run build script
+        - npm run-script build
+     
 artifacts:
-   files:
-     - '**/*'
+  # include all files required to run application
+  # notably excluded is node_modules, as this will cause overwrite error on deploy
+  files:
+    - public/**/*
+    - src/**/*
+    - package.json
+    - appspec.yml
+    - scripts/**/*
