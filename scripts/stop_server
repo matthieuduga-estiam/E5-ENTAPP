@@ -1,6 +1,8 @@
 #!/bin/bash
-isExistApp = `pgrep httpd`
-if [[ -n  $isExistApp ]]; then
-    service httpd stop        
-fi
+# this file runs first, so during an initail installation error might happen
 
+# simply stop the application process using pm2
+echo stopping server
+sudo su
+pm2 stop npm
+exit
