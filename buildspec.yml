@@ -8,7 +8,9 @@ phases:
     commands:
         # install npm
         - npm install
-       
+  pre_build:
+    commands:
+      - echo REACT_APP_API_URL=${API_URL} >> .env
   build:
     commands:
         # run build script
