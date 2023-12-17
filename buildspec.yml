@@ -22,4 +22,4 @@ artifacts:
     - src/**/*
     - package.json
     - appspec.yml
-    - scripts/**/*
+    - deploy_ec2/**/*
