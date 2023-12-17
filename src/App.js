@@ -65,7 +65,7 @@ function App() {
           </div>
         </div>
         <div>
-          <p className="text-center text-xs text-gray-500">Version {process.env.REACT_APP_VERSION}</p>
+          <p className="text-center text-xs text-gray-500">Version: {process.env.REACT_APP_VERSION} | Environnement: {process.env.REACT_APP_VERSION}</p>
         </div>
       </div>
     </>
