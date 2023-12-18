@@ -1,0 +1,535 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: Create all backend.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+
+Resources:
+  # Policy required for all lambda function roles.
+  LambdaPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: Base permissions needed by all lambda functions.
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - ec2:CreateNetworkInterface
+              - ec2:DescribeNetworkInterfaces
+              - ec2:DeleteNetworkInterface
+            Resource: "*"
+
+  DevTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${Environment}-todo-matthieu"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${Environment}-api-gateway-matthieu"
+      Description: A description
+      EndpointConfiguration:
+        Types:
+        - REGIONAL
+      FailOnWarnings: true
+      Body:
+        swagger: 2.0
+        info:
+          description: |
+            The account API.
+          version: 1.0
+        basePath: /
+        schemes:
+          - https
+        consumes:
+          - application/json
+        produces:
+          - application/json
+        definitions:
+          Todo:
+            type: object
+            required:
+              - id
+              - title
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+        paths:
+          /todos:
+            get:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetLambda.Arn}/invocations"
+                credentials: !GetAtt ApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+                contentHandling: "CONVERT_TO_TEXT"
+                responses:
+                  default:
+                    statusCode: "200"
+              operationId: getTodos
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: OK
+                  schema:
+                    $ref: "#/definitions/Todo"
+            post:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PostLambda.Arn}/invocations"
+                credentials: !GetAtt ApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+                responses:
+                  default:
+                    statusCode: "200"
+              operationId: postTodos
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: OK
+                  schema:
+                    $ref: "#/definitions/Todo"
+              parameters:
+                - name: body
+                  in: body
+                  description: TBD
+                  required: true
+                  schema:
+                    type: object
+                    required:
+                    - id
+                    - title
+                    - status
+                    properties:
+                      id:
+                        type: string
+                      title:
+                        type: string
+                      status:
+                        type: boolean
+            options:
+              description: CORS support
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: Default response for CORS method
+                  headers:
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Origin:
+                      type: string
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: |
+                    {
+                      "statusCode" : 200
+                    }
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Methods: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+          /todos/{id}:
+            put:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${PutLambda.Arn}/invocations"
+                credentials: !GetAtt ApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+                responses:
+                  default:
+                    statusCode: "200"
+              operationId: putTodos
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: OK
+                  schema:
+                    $ref: "#/definitions/Todo"
+              parameters:
+                - name: id
+                  in: path
+                  description: TBD
+                  required: true
+                  type: string
+                - name: body
+                  in: body
+                  description: TBD
+                  required: true
+                  schema:
+                    type: object
+                    required:
+                    - title
+                    - status
+                    properties:
+                      title:
+                        type: string
+                      status:
+                        type: boolean
+            delete:
+              description: TBD
+              x-amazon-apigateway-integration:
+                uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteLambda.Arn}/invocations"
+                credentials: !GetAtt ApiGatewayRole.Arn
+                passthroughBehavior: when_no_match
+                httpMethod: POST
+                type: aws_proxy
+                responses:
+                  default:
+                    statusCode: "200"
+              operationId: deleteTodos
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: OK
+                  schema:
+                    $ref: "#/definitions/Todo"
+              parameters:
+                - name: id
+                  in: path
+                  description: TBD
+                  required: true
+                  type: string
+            options:
+              description: CORS support
+              consumes:
+                - application/json
+              produces:
+                - application/json
+              responses:
+                "200":
+                  description: Default response for CORS method
+                  headers:
+                    Access-Control-Allow-Headers:
+                      type: string
+                    Access-Control-Allow-Methods:
+                      type: string
+                    Access-Control-Allow-Origin:
+                      type: string
+              x-amazon-apigateway-integration:
+                type: mock
+                requestTemplates:
+                  application/json: |
+                    {
+                      "statusCode" : 200
+                    }
+                responses:
+                  default:
+                    statusCode: "200"
+                    responseParameters:
+                      method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                      method.response.header.Access-Control-Allow-Methods: "'*'"
+                      method.response.header.Access-Control-Allow-Origin: "'*'"
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: !Sub "${Environment}"
+  ApiGatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambda
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: "*"
+
+  GetLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-todo-get-matthieu"
+      Role: !GetAtt DevLambdaRole.Arn
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Code:
+        ZipFile: |
+          var AWS = require("aws-sdk")
+          AWS.config.update({ region: 'eu-west-1' })
+          const tableName = "dev-todo-matthieu"
+          var dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' })
+          var ddbDocumentClient = new AWS.DynamoDB.DocumentClient()
+
+          exports.handler = async (event, context) => {
+              let headers = {
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "*"
+              }
+              let body
+              let statusCode = 200
+
+              try {
+                  var params = {
+                      TableName: tableName
+                  }
+
+                  var result = await ddbDocumentClient.scan(params).promise()
+
+                  body = JSON.stringify(result.Items)
+              } 
+              catch (err) {
+                  statusCode = 400
+                  body = err.message
+              }
+
+              const response = {
+                  statusCode,
+                  headers,
+                  body
+              }
+              return response
+          }
+
+
+  PostLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-todo-post-matthieu"
+      Role: !GetAtt DevLambdaRole.Arn
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Code:
+        ZipFile: |
+          var AWS = require("aws-sdk")
+          AWS.config.update({ region: 'eu-west-1' })
+          const tableName = "dev-todo-matthieu"
+          var dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' })
+
+          exports.handler = async (event, context) => {
+              let headers = {
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "*"
+              }
+              let body
+              let statusCode = 200
+
+              let { id, text, status } = JSON.parse(event.body)
+
+              try {
+                  var params = {
+                      TableName: tableName,
+                      Item: {
+                          'id': { S: "" + id + "" },
+                          'text': { S: "" + text + "" },
+                          'status': { N: "" + status + "" }
+                      }
+                  }
+
+                  await dynamodb.putItem(params).promise()
+
+                  body = "Added item with id " + id
+              } 
+              catch (err) {
+                  statusCode = 400
+                  body = err.message
+              }
+
+              const response = {
+                  statusCode,
+                  headers,
+                  body
+              }
+              return response
+          }
+
+  PutLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-todo-put-matthieu"
+      Role: !GetAtt DevLambdaRole.Arn
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Code:
+        ZipFile: |
+          var AWS = require("aws-sdk")
+          AWS.config.update({ region: 'eu-west-1' })
+          const tableName = "dev-todo-matthieu"
+          var dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' })
+
+          exports.handler = async (event, context) => {
+              let headers = {
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "*"
+              }
+              let body
+              let statusCode = 200
+
+              let id = event.pathParameters.id
+              let { text, status } = JSON.parse(event.body)
+
+              try {
+                  var params = {
+                      TableName: tableName,
+                      Item: {
+                          'id': { S: "" + id + "" },
+                          'text': { S: "" + text + "" },
+                          'status': { N: "" + status + "" }
+                      }
+                  }
+
+                  await dynamodb.putItem(params).promise()
+
+                  body = "Modified item with id " + id
+              } 
+              catch (err) {
+                  statusCode = 400
+                  body = err.message
+              }
+
+              const response = {
+                  statusCode,
+                  headers,
+                  body
+              }
+              return response
+          }
+
+  
+  DeleteLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${Environment}-todo-delete-matthieu"
+      Role: !GetAtt DevLambdaRole.Arn
+      Handler: index.handler
+      Runtime: nodejs16.x
+      Code:
+        ZipFile: |
+          var AWS = require("aws-sdk")
+          AWS.config.update({ region: 'eu-west-1' })
+          const tableName = "dev-todo-matthieu"
+          var dynamodb = new AWS.DynamoDB({ apiVersion: '2012-08-10' })
+
+          exports.handler = async (event, context) => {
+              let headers = {
+                  "Access-Control-Allow-Headers": "Content-Type",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "*"
+              }
+              let body
+              let statusCode = 200
+
+              let id = event.pathParameters.id
+
+              try {
+                  var params = {
+                      TableName: tableName,
+                      Key: {
+                          'id': { S: "" + id + "" },
+                      }
+                  }
+
+                  await dynamodb.deleteItem(params).promise()
+
+                  body = "Deleted item with id " + id
+              } 
+              catch (err) {
+                  statusCode = 400
+                  body = err.message
+              }
+
+              const response = {
+                  statusCode,
+                  headers,
+                  body
+              }
+              return response
+          }
+
+
+
+  DevLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref LambdaPolicy
+      Policies:
+        - PolicyName: getTodos
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DevTable}"
+        - PolicyName: postTodos
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DevTable}"
+        - PolicyName: putTodos
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:UpdateItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DevTable}"
+        - PolicyName: deleteTodos
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:DeleteItem
+                Resource: !Sub "arn:aws:dynamodb:${AWS::Region}:*:table/${DevTable}"
